@@ -6,7 +6,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatRadioButton;
 import android.util.Log;
 import android.view.View;
-import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioGroup;
@@ -23,6 +22,7 @@ import com.tmspl.trace.activity.homeactivity.HomeActivity;
 import com.tmspl.trace.activity.ridersactivity.RiderHomeActivity;
 import com.tmspl.trace.api.API;
 import com.tmspl.trace.api.RetrofitCallbacks;
+import com.tmspl.trace.apimodel.DbModel;
 import com.tmspl.trace.apimodel.LoginNewResponse;
 import com.tmspl.trace.extra.Constants;
 import com.tmspl.trace.extra.LocationService;
@@ -33,6 +33,8 @@ import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import io.realm.Realm;
+import io.realm.RealmResults;
 import retrofit2.Call;
 import retrofit2.Response;
 
@@ -64,6 +66,10 @@ public class LoginActivity extends AppCompatActivity implements Validator.Valida
 
     public static String type;
     private String password;
+    String fcmKey;
+    Realm realm;
+    DbModel dbModel;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,9 +77,17 @@ public class LoginActivity extends AppCompatActivity implements Validator.Valida
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
         ButterKnife.bind(this);
+        realm = Realm.getDefaultInstance();
 
         validator = new Validator(this);
         validator.setValidationListener(this);
+
+        RealmResults<DbModel> tagsBeanModelRealmResults = realm.where(DbModel.class).findAll();
+
+        for (DbModel model1 : tagsBeanModelRealmResults) {
+            Log.e(TAG, "IN Realm LOGIN" + model1.getFcmToken());
+            fcmKey = model1.getFcmToken();
+        }
 
         btnSignIn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -114,7 +128,7 @@ public class LoginActivity extends AppCompatActivity implements Validator.Valida
 
 
         //Login Api
-        API.getInstance().loginUser(LoginActivity.this, Constants.AUTH, email, password, new RetrofitCallbacks<LoginNewResponse>(LoginActivity.this) {
+        API.getInstance().loginUser(LoginActivity.this, Constants.AUTH, email, password, fcmKey, new RetrofitCallbacks<LoginNewResponse>(LoginActivity.this) {
             @Override
             public void onResponse(Call<LoginNewResponse> call, Response<LoginNewResponse> response) {
                 super.onResponse(call, response);
@@ -134,6 +148,9 @@ public class LoginActivity extends AppCompatActivity implements Validator.Valida
 
                         List<LoginNewResponse.ResponseJsonBean.RiderQueryResultBean> riderList = responseJsonBean
                                 .getRiderQueryResult();
+
+
+                        Log.e(TAG, "onResponse: " + type);
 
                         if (type.equals("user")) {
 
@@ -194,7 +211,7 @@ public class LoginActivity extends AppCompatActivity implements Validator.Valida
      * Called when one or several {@link Rule}s fail.
      *
      * @param errors List containing references to the {@link View}s and
-     * {@link Rule}s that failed.
+     *               {@link Rule}s that failed.
      */
     @Override
     public void onValidationFailed(List<ValidationError> errors) {
@@ -203,8 +220,8 @@ public class LoginActivity extends AppCompatActivity implements Validator.Valida
             String message = error.getCollatedErrorMessage(this);
 
             // Display error messages ;)
-            if (view instanceof AutoCompleteTextView) {
-                ((AutoCompleteTextView) view).setError(message);
+            if (view instanceof EditText) {
+                ((TextView) (EditText) view).setError(message);
             } else {
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show();
             }
